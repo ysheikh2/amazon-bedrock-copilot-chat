@@ -82,6 +82,31 @@ export class StreamProcessor {
         state.hasEmittedContent = true;
       }
 
+      // Model exhausted its token budget on internal reasoning (thinking) without
+      // producing visible output. Emit a user-friendly fallback instead of throwing
+      // a hard error that VS Code surfaces as "Sorry, no response was returned".
+      if (
+        !state.hasEmittedContent &&
+        !state.hasEmittedThinking &&
+        !token.isCancellationRequested &&
+        state.stopReason === StopReason.MAX_TOKENS
+      ) {
+        logger.warn(
+          "[Stream Processor] Model hit max_tokens with no visible output",
+          {
+            hasCapturedThinking: !!state.capturedThinkingBlock?.text,
+            thinkingLength: state.capturedThinkingBlock?.text.length ?? 0,
+          },
+        );
+        progress.report(
+          new vscode.LanguageModelTextPart(
+            "*(The model exhausted its token budget on internal reasoning without producing a visible response. " +
+              "This can happen in long conversations. Please try starting a new conversation or rephrasing your request.)*",
+          ),
+        );
+        state.hasEmittedContent = true;
+      }
+
       // For genuinely empty responses (no thinking, no text, no tools) with a
       // normal end_turn stop reason, emit a friendly fallback message instead of
       // throwing a hard error.  This is a known LLM edge case that can happen
@@ -119,6 +144,27 @@ export class StreamProcessor {
         progress.report(
           new vscode.LanguageModelTextPart(
             "*(The model attempted a tool call but the response could not be processed. This model may have limited tool calling support. Please try again or use a different model.)*",
+          ),
+        );
+        state.hasEmittedContent = true;
+      }
+
+      // Catch-all: if no content was emitted and none of the above specific
+      // handlers matched, emit a generic fallback rather than letting
+      // validateContentEmission throw a hard error that VS Code shows as
+      // "Sorry, no response was returned".
+      if (
+        !state.hasEmittedContent &&
+        !state.hasEmittedThinking &&
+        !token.isCancellationRequested
+      ) {
+        logger.warn(
+          "[Stream Processor] No content emitted - emitting fallback",
+          { stopReason: state.stopReason },
+        );
+        progress.report(
+          new vscode.LanguageModelTextPart(
+            "*(The model did not produce a response. Please try again or rephrase your request.)*",
           ),
         );
         state.hasEmittedContent = true;
@@ -451,8 +497,15 @@ export class StreamProcessor {
       return;
     }
 
-    // Check MAX_TOKENS before thinking-only: if the model exhausted its token
-    // budget on reasoning, the user needs to know even though thinking was received.
+    // MAX_TOKENS with thinking emitted to UI: the user already saw the reasoning,
+    // so this is not a silent failure. Don't throw — the thinking UI provides context.
+    if (state.stopReason === StopReason.MAX_TOKENS && state.hasEmittedThinking) {
+      return;
+    }
+
+    // MAX_TOKENS with no visible output at all: the soft fallback above should have
+    // already handled this by emitting a user-friendly message. If somehow we reach
+    // here (e.g. cancellation race), throw a descriptive error.
     if (state.stopReason === StopReason.MAX_TOKENS) {
       throw new Error(
         "The model reached its maximum token limit while generating internal reasoning. Try reducing the conversation history or adjusting model parameters.",

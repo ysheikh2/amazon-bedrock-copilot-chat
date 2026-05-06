@@ -242,8 +242,8 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
                 maxInput,
                 maxOutput,
                 modelId: modelIdToUse,
-                route,
                 providerName: m.providerName,
+                route,
                 vision,
               }),
               version: "1.0.0",
@@ -298,8 +298,8 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
                 maxInput,
                 maxOutput,
                 modelId: modelIdForLimits,
-                route: "Application inference profile",
                 providerName: profile.providerName,
+                route: "Application inference profile",
                 vision,
               }),
               version: "1.0.0",
@@ -553,9 +553,10 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
 
         if (assistantMsgCount > 1) {
           // Can't inject thinking blocks for multiple previous assistant messages
-          // Each assistant message needs its own unique thinking block, but we only have one stored
-          logger.warn(
-            "[Bedrock Model Provider] Disabling extended thinking - multiple assistant messages in history require individual thinking blocks",
+          // Each assistant message needs its own unique thinking block, but we only have one stored.
+          // This is expected behavior in multi-turn conversations — log at debug level to avoid spam.
+          logger.debug(
+            "[Bedrock Model Provider] Disabling extended thinking for multi-turn conversation",
             { assistantMsgCount },
           );
           extendedThinkingEnabled = false;
@@ -565,7 +566,7 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
           this.lastThinkingBlock = undefined;
         } else if (assistantMsgCount === 1 && !this.lastThinkingBlock?.signature) {
           // Have one assistant message but no thinking block to inject
-          logger.warn(
+          logger.debug(
             "[Bedrock Model Provider] Disabling extended thinking - no stored thinking block available for previous assistant message",
           );
           extendedThinkingEnabled = false;
@@ -784,92 +785,6 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
     }
   }
 
-  /**
-   * Format model display name with a warning prefix for LEGACY models.
-   * The warning glyph (U+26A0) signals that the model is deprecated by AWS
-   * and may stop responding after 30 days of inactivity for the account.
-   */
-  private formatDisplayName(name: string, lifecycleStatus?: string): string {
-    return lifecycleStatus === "LEGACY" ? `${LEGACY_PREFIX}${name}` : name;
-  }
-
-  /**
-   * Build the inline detail string shown next to the model name in the picker.
-   * Format: "<context>K | <output>K out | <thinking-mode> | <vision>"
-   */
-  private formatDetail(
-    modelId: string,
-    maxInput: number,
-    maxOutput: number,
-    vision: boolean,
-    lifecycleStatus?: string,
-  ): string {
-    const profile = getModelProfile(modelId);
-    const ctxK = Math.round((maxInput + maxOutput) / 1000);
-    const outK = Math.round(maxOutput / 1000);
-    const ctxLabel = ctxK >= 1000 ? `${(ctxK / 1000).toFixed(0)}M` : `${ctxK}K`;
-    const parts = [`${ctxLabel} ctx`, `${outK}K out`];
-
-    if (profile.requiresAdaptiveThinking) {
-      parts.push("adaptive thinking");
-    } else if (profile.supportsThinkingEffort) {
-      parts.push("adaptive or budget thinking");
-    } else if (profile.supportsThinking) {
-      parts.push("budget thinking");
-    }
-
-    if (vision) parts.push("vision");
-    if (lifecycleStatus === "LEGACY") parts.push("LEGACY");
-
-    return parts.join(" \u00B7 ");
-  }
-
-  /**
-   * Build a multi-line tooltip describing the model's capabilities.
-   * Plain string (VS Code's LanguageModelChatInformation.tooltip is `string`).
-   */
-  private formatTooltip(args: {
-    providerName: string;
-    modelId: string;
-    maxInput: number;
-    maxOutput: number;
-    vision: boolean;
-    route: string;
-    lifecycleStatus?: string;
-  }): string {
-    const profile = getModelProfile(args.modelId);
-    const lines: string[] = [`AWS Bedrock - ${args.providerName}`];
-    lines.push(`Route: ${args.route}`);
-    lines.push(`Model ID: ${args.modelId}`);
-
-    if (args.lifecycleStatus === "LEGACY") {
-      lines.push(
-        "Warning: AWS marks this model as LEGACY. It may be deprecated and " +
-          "becomes gated after 30 days of account-level inactivity.",
-      );
-    }
-
-    const ctxK = Math.round((args.maxInput + args.maxOutput) / 1000);
-    const ctxLabel = ctxK >= 1000 ? `${(ctxK / 1000).toFixed(0)}M tokens` : `${ctxK}K tokens`;
-    lines.push(`Context: ${ctxLabel} | Max output: ${Math.round(args.maxOutput / 1000)}K tokens`);
-
-    if (profile.requiresAdaptiveThinking) {
-      lines.push("Thinking: adaptive only (uses output_config.effort)");
-    } else if (profile.supportsThinkingEffort) {
-      lines.push("Thinking: adaptive (recommended) or enabled+budget");
-    } else if (profile.supportsThinking) {
-      lines.push("Thinking: enabled+budget_tokens");
-    }
-
-    if (profile.temperatureDeprecated) {
-      lines.push("Note: temperature parameter is not supported");
-    }
-    if (args.vision) lines.push("Vision: image input supported");
-    if (profile.supportsToolChoice) lines.push("Tools: tool calling supported");
-
-    return lines.join("\n");
-  }
-
   /** Apply extended thinking fields. Extracted to reduce cognitive complexity. */
   private applyThinkingFields(
     requestInput: ConverseStreamCommandInput,
@@ -883,19 +798,15 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
       requestInput.inferenceConfig!.temperature = 1;
     }
     // CLI-verified: Opus 4.7 requires adaptive, all others use enabled+budget
-    if (requiresAdaptiveThinking) {
-      requestInput.additionalModelRequestFields = {
+    requestInput.additionalModelRequestFields = requiresAdaptiveThinking ? {
         thinking: { type: "adaptive" },
         ...(betaHeaders.length > 0 ? { anthropic_beta: betaHeaders } : {}),
         ...(thinkingEffort ? { output_config: { effort: thinkingEffort } } : {}),
-      };
-    } else {
-      requestInput.additionalModelRequestFields = {
+      } : {
         thinking: { budget_tokens: budgetTokens, type: "enabled" },
         ...(betaHeaders.length > 0 ? { anthropic_beta: betaHeaders } : {}),
         ...(thinkingEffort ? { output_config: { effort: thinkingEffort } } : {}),
       };
-    }
   }
 
   /**
@@ -983,8 +894,8 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
           maxInput: limits.maxInputTokens,
           maxOutput: limits.maxOutputTokens,
           modelId: baseModelId,
-          route: "Manual entry",
           providerName: "Bedrock",
+          route: "Manual entry",
           vision: likelyVisionCapable,
         }),
         version: "1.0.0",
@@ -1476,6 +1387,90 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
       `[Bedrock Model Provider] No accessible inference profile or base model for ${candidate.model.modelId}`,
     );
     return { ...candidate, isAccessible: false };
+  }
+
+  /**
+   * Build the inline detail string shown next to the model name in the picker.
+   * Format: "<context>K | <output>K out | <thinking-mode> | <vision>"
+   */
+  private formatDetail(
+    modelId: string,
+    maxInput: number,
+    maxOutput: number,
+    vision: boolean,
+    lifecycleStatus?: string,
+  ): string {
+    const profile = getModelProfile(modelId);
+    const ctxK = Math.round((maxInput + maxOutput) / 1000);
+    const outK = Math.round(maxOutput / 1000);
+    const ctxLabel = ctxK >= 1000 ? `${(ctxK / 1000).toFixed(0)}M` : `${ctxK}K`;
+    const parts = [`${ctxLabel} ctx`, `${outK}K out`];
+
+    if (profile.requiresAdaptiveThinking) {
+      parts.push("adaptive thinking");
+    } else if (profile.supportsThinkingEffort) {
+      parts.push("adaptive or budget thinking");
+    } else if (profile.supportsThinking) {
+      parts.push("budget thinking");
+    }
+
+    if (vision) parts.push("vision");
+    if (lifecycleStatus === "LEGACY") parts.push("LEGACY");
+
+    return parts.join(" \u00B7 ");
+  }
+
+  /**
+   * Format model display name with a warning prefix for LEGACY models.
+   * The warning glyph (U+26A0) signals that the model is deprecated by AWS
+   * and may stop responding after 30 days of inactivity for the account.
+   */
+  private formatDisplayName(name: string, lifecycleStatus?: string): string {
+    return lifecycleStatus === "LEGACY" ? `${LEGACY_PREFIX}${name}` : name;
+  }
+
+  /**
+   * Build a multi-line tooltip describing the model's capabilities.
+   * Plain string (VS Code's LanguageModelChatInformation.tooltip is `string`).
+   */
+  private formatTooltip(args: {
+    lifecycleStatus?: string;
+    maxInput: number;
+    maxOutput: number;
+    modelId: string;
+    providerName: string;
+    route: string;
+    vision: boolean;
+  }): string {
+    const profile = getModelProfile(args.modelId);
+    const lines: string[] = [`AWS Bedrock - ${args.providerName}`, `Route: ${args.route}`, `Model ID: ${args.modelId}`];
+
+    if (args.lifecycleStatus === "LEGACY") {
+      lines.push(
+        "Warning: AWS marks this model as LEGACY. It may be deprecated and " +
+          "becomes gated after 30 days of account-level inactivity.",
+      );
+    }
+
+    const ctxK = Math.round((args.maxInput + args.maxOutput) / 1000);
+    const ctxLabel = ctxK >= 1000 ? `${(ctxK / 1000).toFixed(0)}M tokens` : `${ctxK}K tokens`;
+    lines.push(`Context: ${ctxLabel} | Max output: ${Math.round(args.maxOutput / 1000)}K tokens`);
+
+    if (profile.requiresAdaptiveThinking) {
+      lines.push("Thinking: adaptive only (uses output_config.effort)");
+    } else if (profile.supportsThinkingEffort) {
+      lines.push("Thinking: adaptive (recommended) or enabled+budget");
+    } else if (profile.supportsThinking) {
+      lines.push("Thinking: enabled+budget_tokens");
+    }
+
+    if (profile.temperatureDeprecated) {
+      lines.push("Note: temperature parameter is not supported");
+    }
+    if (args.vision) lines.push("Vision: image input supported");
+    if (profile.supportsToolChoice) lines.push("Tools: tool calling supported");
+
+    return lines.join("\n");
   }
 
   /**

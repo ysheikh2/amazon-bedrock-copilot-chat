@@ -14,6 +14,16 @@ This changelog is split into two sections:
 
 ## Fork changelog (`rangan2510/aws-bedrock-for-copilot`)
 
+### [0.11.2] - 2026-05-06
+
+#### Fixed
+
+- **Reduced extended thinking log spam** -- multi-turn conversations no longer emit a `[warning]` on every request about disabling extended thinking; downgraded to `debug` since this is expected behavior when VS Code can't preserve thinking blocks across turns
+- **Eliminated "Sorry, no response was returned" errors** -- added soft fallback messages for all empty-response scenarios (`MAX_TOKENS` exhausted on reasoning, unknown stop reasons, catch-all) so users see an actionable message instead of the generic VS Code error
+- **Thinking-only responses with `MAX_TOKENS`** -- when the model emits thinking to the UI but hits the token limit before producing text, the response is no longer treated as a fatal error
+
+---
+
 ### [0.11.1-fork.2] - 2026-04-26
 
 #### Added
