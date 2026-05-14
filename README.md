@@ -40,6 +40,11 @@ Bugfixes and additions over upstream `v0.11.0`. CLI-verified against the live Be
 
 - Runs as the `aws-bedrock-for-copilot` vendor with its own config namespace, so it installs alongside the upstream `bedrock` extension without conflicts
 
+**VS Code 1.116+ compatibility (May 2026)**
+
+- Models now appear in the agent-mode model picker again. VS Code 1.116 introduced two proposed-API gates (`agentMode`, `isUserSelectable`) that hid every model from this extension; the fork sets both to `true` on every model entry.
+- Long-running Claude streams (extended thinking >5 min) no longer fail with `BodyTimeoutError: terminated`. Switched the AWS SDK transport from `smithy-node-native-fetch` (Node's undici, hard-coded 5-minute body timeout) to `@smithy/node-http-handler` (Node's `http`/`https` modules) with `socketTimeout: 0` and 30-second TCP keep-alive packets to keep idle connections open through firewalls.
+
 ## Features
 
 - **80+ Bedrock models**: All text-generation models with tool calling support, including Claude, Llama, Mistral, Qwen, DeepSeek, Kimi, GLM, Gemma, Nova, and more (see [Supported Models](#supported-models))

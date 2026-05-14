@@ -130,7 +130,7 @@ declare module 'vscode' {
 		 * 'iso88597', 'windows1255', 'iso88598', 'iso885910', 'iso885916', 'windows1254',
 		 * 'iso88599', 'windows1258', 'gbk', 'gb18030', 'cp950', 'big5hkscs', 'shiftjis',
 		 * 'eucjp', 'euckr', 'windows874', 'iso885911', 'koi8ru', 'koi8t', 'gb2312',
-		 * 'cp865', 'cp850'.
+		 * 'cp865', 'cp850', 'cp857'.
 		 */
 		readonly encoding: string;
 
@@ -12249,6 +12249,8 @@ declare module 'vscode' {
 		/**
 		 * Get the children of `element` or root if no element is passed.
 		 *
+		 * *Note:* The result is not mutated by the API consumer; readonly arrays may be cast to `T[]`.
+		 *
 		 * @param element The element from which the provider gets children. Can be `undefined`.
 		 * @returns Children of `element` or root if no element is passed.
 		 */
@@ -20583,11 +20585,6 @@ declare module 'vscode' {
 		readonly id: string;
 
 		/**
-		 * Whether the model is selectable by the user in the model picker dropdown.
-		 */
-		readonly isUserSelectable?: boolean;
-
-		/**
 		 * Human-readable name of the language model.
 		 */
 		readonly name: string;
@@ -20635,11 +20632,6 @@ declare module 'vscode' {
 	 * Various features that the {@link LanguageModelChatInformation} supports such as tool calling or image input.
 	 */
 	export interface LanguageModelChatCapabilities {
-		/**
-		 * Whether the model supports agent mode in the chat picker.
-		 */
-		readonly agentMode?: boolean;
-
 		/**
 		 * Whether image input is supported by the model.
 		 * Common supported images are jpg and png, but each model will vary in supported mimetypes.

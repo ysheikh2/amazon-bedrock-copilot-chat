@@ -14,6 +14,18 @@ This changelog is split into two sections:
 
 ## Fork changelog (`rangan2510/aws-bedrock-for-copilot`)
 
+### [0.12.0-fork.2] - 2026-05-14
+
+#### Fixed
+
+- **`BodyTimeoutError: terminated` after ~5 minutes during long Claude streams** -- replaced the `smithy-node-native-fetch` HTTP handler (which uses Node's native `fetch`/undici under the hood) with `@smithy/node-http-handler` (Node's `http`/`https` modules directly). Undici enforces a hard-coded 5-minute body timeout that aborted streaming requests when Claude Opus 4.7 paused for extended thinking longer than 5 minutes. The new handler has `socketTimeout: 0` (no idle timeout) and TCP keep-alive packets every 30 s to prevent network middleboxes from dropping silent connections. Bundle size also dropped from 2.10 MB to 1.98 MB.
+
+### [0.12.0-fork.1] - 2026-05-14
+
+#### Fixed
+
+- **Models invisible in the VS Code 1.116+ Copilot Chat picker** -- VS Code 1.116 introduced two proposed-API properties (`agentMode` in `capabilities` and `isUserSelectable` at the top level of `LanguageModelChatInformation`) that gate model visibility in the agent-mode model selector. Without them, every model contributed by this extension was hidden. Added a `PickerLanguageModelChatInformation` intersection type and set both properties to `true` on every model (foundation, inference profile, manual entry).
+
 ### [0.11.2] - 2026-05-06
 
 #### Fixed

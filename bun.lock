@@ -10,9 +10,9 @@
         "@aws-sdk/client-ssm": "^3.1032.0",
         "@aws-sdk/credential-providers": "^3.1032.0",
         "@aws-sdk/protocol-http": "^3.374.0",
+        "@smithy/node-http-handler": "^4.5.3",
         "@smithy/shared-ini-file-loader": "^4.4.9",
         "@smithy/util-retry": "^4.3.2",
-        "smithy-node-native-fetch": "^1.2.1",
       },
       "devDependencies": {
         "@eslint-community/eslint-plugin-eslint-comments": "4.7.1",
@@ -1056,8 +1056,6 @@
     "signal-exit": ["signal-exit@4.1.0", "", {}, "sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw=="],
 
     "sisteransi": ["sisteransi@1.0.5", "", {}, "sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg=="],
-
-    "smithy-node-native-fetch": ["smithy-node-native-fetch@1.2.1", "", { "peerDependencies": { "@aws-sdk/protocol-http": "^3", "@smithy/protocol-http": "^3" }, "optionalPeers": ["@aws-sdk/protocol-http", "@smithy/protocol-http"] }, "sha512-A4AJp/6IwkG1v1ILVIxwfBHGs/kSxgcC5YHfp1TQcXuvsR9y1DMM5S7WTLyC+q9cBPgTgHnhOEwZeq6FFVEKAg=="],
 
     "statuses": ["statuses@2.0.2", "", {}, "sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw=="],
 

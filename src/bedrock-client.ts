@@ -25,7 +25,6 @@ import {
 import { fromIni } from "@aws-sdk/credential-providers";
 import type { AwsCredentialIdentity, AwsCredentialIdentityProvider } from "@aws-sdk/types";
 import { AdaptiveRetryStrategy, DefaultRateLimiter } from "@smithy/util-retry";
-import * as nodeNativeFetch from "smithy-node-native-fetch";
 
 import {
   getPartitionFromRegion,
@@ -33,6 +32,7 @@ import {
   supportsGlobalInferenceProfiles,
 } from "./aws-partition";
 import { getProfileSdkUaAppId } from "./aws-profiles";
+import { getLongRunningRequestHandlerConfig } from "./http-handler";
 import { logger } from "./logger";
 import type { AuthConfig, BedrockModelSummary } from "./types";
 
@@ -643,8 +643,11 @@ export class BedrockAPIClient {
   }
 
   private getClientConfig(): BedrockClientConfig & BedrockRuntimeClientConfig {
+    // Use NodeHttpHandler with disabled body timeout + TCP keepalive so long-
+    // running Claude streaming requests (extended thinking >5min) don't get
+    // aborted by undici's default body timeout. See ./http-handler.ts.
     const base = {
-      ...nodeNativeFetch,
+      ...getLongRunningRequestHandlerConfig(),
       region: this.region,
       retryStrategy: new AdaptiveRetryStrategy(
         async () => 10, // maxAttempts provider function

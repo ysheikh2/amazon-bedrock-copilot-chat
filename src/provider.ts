@@ -815,15 +815,17 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
       requestInput.inferenceConfig!.temperature = 1;
     }
     // CLI-verified: Opus 4.7 requires adaptive, all others use enabled+budget
-    requestInput.additionalModelRequestFields = requiresAdaptiveThinking ? {
-        thinking: { type: "adaptive" },
-        ...(betaHeaders.length > 0 ? { anthropic_beta: betaHeaders } : {}),
-        ...(thinkingEffort ? { output_config: { effort: thinkingEffort } } : {}),
-      } : {
-        thinking: { budget_tokens: budgetTokens, type: "enabled" },
-        ...(betaHeaders.length > 0 ? { anthropic_beta: betaHeaders } : {}),
-        ...(thinkingEffort ? { output_config: { effort: thinkingEffort } } : {}),
-      };
+    requestInput.additionalModelRequestFields = requiresAdaptiveThinking
+      ? {
+          thinking: { type: "adaptive" },
+          ...(betaHeaders.length > 0 ? { anthropic_beta: betaHeaders } : {}),
+          ...(thinkingEffort ? { output_config: { effort: thinkingEffort } } : {}),
+        }
+      : {
+          thinking: { budget_tokens: budgetTokens, type: "enabled" },
+          ...(betaHeaders.length > 0 ? { anthropic_beta: betaHeaders } : {}),
+          ...(thinkingEffort ? { output_config: { effort: thinkingEffort } } : {}),
+        };
   }
 
   /**
@@ -1462,9 +1464,11 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
     vision: boolean;
   }): string {
     const profile = getModelProfile(args.modelId);
-    const lines: string[] = [`AWS Bedrock - ${args.providerName}`, `Route: ${args.route}`, `Model ID: ${args.modelId}`];
-
-
+    const lines: string[] = [
+      `AWS Bedrock - ${args.providerName}`,
+      `Route: ${args.route}`,
+      `Model ID: ${args.modelId}`,
+    ];
 
     if (args.lifecycleStatus === "LEGACY") {
       lines.push(
