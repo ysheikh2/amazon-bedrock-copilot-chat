@@ -29,6 +29,19 @@ import { StreamProcessor, type ThinkingBlock } from "./stream-processor";
 import type { AuthConfig, AuthMethod, BedrockModelSummary } from "./types";
 import { validateBedrockMessages } from "./validation";
 
+/**
+ * Extended model information type that includes proposed API properties
+ * for the VS Code model picker (agentMode and isUserSelectable).
+ * These fields control whether models appear in Copilot Chat's agent mode
+ * and the model selector dropdown.
+ */
+type PickerLanguageModelChatInformation = LanguageModelChatInformation & {
+  readonly capabilities: LanguageModelChatInformation["capabilities"] & {
+    readonly agentMode: boolean;
+  };
+  readonly isUserSelectable: boolean;
+};
+
 /** Warning glyph prepended to the displayed name of LEGACY foundation models. */
 const LEGACY_PREFIX = "\u26A0\uFE0E ";
 
@@ -197,7 +210,7 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
           progress?.report({ message: "Building model list..." });
 
           // Build final list of accessible models
-          const infos: LanguageModelChatInformation[] = [];
+          const infos: PickerLanguageModelChatInformation[] = [];
           for (const result of accessibilityChecks) {
             // If the check failed, treat as inaccessible
             if (result.status === "rejected") {
@@ -226,14 +239,16 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
                 : "Local/regional inference profile"
               : "Direct foundation model";
 
-            const modelInfo: LanguageModelChatInformation = {
+            const modelInfo: PickerLanguageModelChatInformation = {
               capabilities: {
+                agentMode: true,
                 imageInput: vision,
                 toolCalling: true,
               },
               detail: this.formatDetail(modelIdToUse, maxInput, maxOutput, vision, lifecycleStatus),
               family: "aws-bedrock-for-copilot",
               id: modelIdToUse,
+              isUserSelectable: true,
               maxInputTokens: maxInput,
               maxOutputTokens: maxOutput,
               name: this.formatDisplayName(m.modelName, lifecycleStatus),
@@ -276,8 +291,9 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
             const vision = profile.inputModalities.includes(ModelModality.IMAGE);
             const lifecycleStatus = profile.modelLifecycle?.status;
 
-            const profileInfo: LanguageModelChatInformation = {
+            const profileInfo: PickerLanguageModelChatInformation = {
               capabilities: {
+                agentMode: true,
                 imageInput: vision,
                 toolCalling: true,
               },
@@ -290,6 +306,7 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
               ),
               family: "aws-bedrock-for-copilot",
               id: profile.modelArn,
+              isUserSelectable: true,
               maxInputTokens: maxInput,
               maxOutputTokens: maxOutput,
               name: this.formatDisplayName(profile.modelName, lifecycleStatus),
@@ -850,7 +867,7 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
     modelId: string,
     settings: Awaited<ReturnType<typeof getBedrockSettings>>,
     token: CancellationToken,
-  ): Promise<LanguageModelChatInformation | undefined> {
+  ): Promise<PickerLanguageModelChatInformation | undefined> {
     const abortController = new AbortController();
     const cancellationListener = token.onCancellationRequested(() => abortController.abort());
 
@@ -876,6 +893,7 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
 
       return {
         capabilities: {
+          agentMode: true,
           imageInput: likelyVisionCapable,
           toolCalling: true,
         },
@@ -887,6 +905,7 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
         ),
         family: "aws-bedrock-for-copilot",
         id: modelId,
+        isUserSelectable: true,
         maxInputTokens: limits.maxInputTokens,
         maxOutputTokens: limits.maxOutputTokens,
         name: modelId,
@@ -1443,7 +1462,9 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
     vision: boolean;
   }): string {
     const profile = getModelProfile(args.modelId);
-    const lines: string[] = [`AWS Bedrock - ${args.providerName}`, `Route: ${args.route}`, `Model ID: ${args.modelId}`];
+    const lines: string[] = [`AWS Bedrock - ${args.providerName}`, `Route: ${args.route}`, `Model ID: ${args.modelId}`];
+
+
 
     if (args.lifecycleStatus === "LEGACY") {
       lines.push(

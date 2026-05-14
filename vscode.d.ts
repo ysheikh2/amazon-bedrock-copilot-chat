@@ -20583,6 +20583,11 @@ declare module 'vscode' {
 		readonly id: string;
 
 		/**
+		 * Whether the model is selectable by the user in the model picker dropdown.
+		 */
+		readonly isUserSelectable?: boolean;
+
+		/**
 		 * Human-readable name of the language model.
 		 */
 		readonly name: string;
@@ -20630,6 +20635,11 @@ declare module 'vscode' {
 	 * Various features that the {@link LanguageModelChatInformation} supports such as tool calling or image input.
 	 */
 	export interface LanguageModelChatCapabilities {
+		/**
+		 * Whether the model supports agent mode in the chat picker.
+		 */
+		readonly agentMode?: boolean;
+
 		/**
 		 * Whether image input is supported by the model.
 		 * Common supported images are jpg and png, but each model will vary in supported mimetypes.

@@ -20046,6 +20046,11 @@ declare module 'vscode' {
 		readonly capabilities: {
 
 			/**
+			 * Whether the model supports agent mode in the chat picker.
+			 */
+			readonly agentMode?: boolean;
+
+			/**
 			 * Whether image input is supported by the model.
 			 * Common supported images are jpg and png, but each model will vary in supported mimetypes.
 			 */
@@ -20073,6 +20078,11 @@ declare module 'vscode' {
 		 * Unique identifier for the language model. Must be unique per provider, but not required to be globally unique.
 		 */
 		readonly id: string;
+
+		/**
+		 * Whether the model is selectable by the user in the model picker dropdown.
+		 */
+		readonly isUserSelectable?: boolean;
 
 		/**
 		 * The maximum number of tokens the model can accept as input.
