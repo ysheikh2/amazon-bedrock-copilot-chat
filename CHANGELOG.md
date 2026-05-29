@@ -14,6 +14,12 @@ This changelog is split into two sections:
 
 ## Fork changelog (`rangan2510/aws-bedrock-for-copilot`)
 
+### [0.12.0-fork.3] - 2026-05-29
+
+#### Added
+
+- **Claude Opus 4.8 support** -- recognise `opus-4-8` model IDs and apply the same constraints as Opus 4.7: `thinking.type: "adaptive"` (rejects `enabled`), `temperature` parameter omitted (rejected by the model), 1M context window with 128K max output, and `xhigh` effort level. Without this, requests to Opus 4.8 failed with `ValidationException: 'temperature' is deprecated for this model.`
+
 ### [0.12.0-fork.2] - 2026-05-14
 
 #### Fixed

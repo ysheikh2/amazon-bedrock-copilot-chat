@@ -152,18 +152,21 @@ export function getModelProfile(modelId: string): ModelProfile {
       // Claude models with extended thinking have issues with cachePoint after toolResult
       const supportsCachingWithToolResults = !supportsThinking;
 
-      // CLI-verified: output_config.effort is supported by Opus 4.6, 4.7, Sonnet 4.6 ONLY.
+      // CLI-verified: output_config.effort is supported by Opus 4.6, 4.7, 4.8, Sonnet 4.6 ONLY.
       // Opus 4.5, Sonnet 4.5, Haiku 4.5 reject effort.
       const supportsThinkingEffort =
         modelId.includes("opus-4-6") ||
         modelId.includes("opus-4-7") ||
+        modelId.includes("opus-4-8") ||
         modelId.includes("sonnet-4-6");
 
-      // CLI-verified: only Opus 4.7 rejects thinking.type="enabled" and requires "adaptive"
-      const requiresAdaptiveThinking = modelId.includes("opus-4-7");
+      // CLI-verified: Opus 4.7 and 4.8 reject thinking.type="enabled" and require "adaptive"
+      const requiresAdaptiveThinking =
+        modelId.includes("opus-4-7") || modelId.includes("opus-4-8");
 
-      // CLI-verified: only Opus 4.7 rejects the temperature parameter
-      const temperatureDeprecated = modelId.includes("opus-4-7");
+      // CLI-verified: Opus 4.7 and 4.8 reject the temperature parameter
+      const temperatureDeprecated =
+        modelId.includes("opus-4-7") || modelId.includes("opus-4-8");
 
       return {
         requiresAdaptiveThinking,
@@ -286,6 +289,14 @@ function getClaudeTokenLimits(
   normalizedModelId: string,
   enable1MContext: boolean,
 ): ModelTokenLimits {
+  // Claude Opus 4.8: 1M context, 128K max output (matches Opus 4.7)
+  if (normalizedModelId.includes("opus-4-8")) {
+    return {
+      maxInputTokens: 1_000_000 - 128_000,
+      maxOutputTokens: 128_000,
+    };
+  }
+
   // Claude Opus 4.7: 1M context, 128K max output (per Anthropic docs)
   if (normalizedModelId.includes("opus-4-7")) {
     return {
@@ -390,18 +401,21 @@ function normalizeModelId(modelId: string): string {
 
 /**
  * Check if a model supports 1M context window
- * Claude Opus 4.6, Sonnet 4.6, and Sonnet 4.x models support extended 1M context via anthropic_beta parameter
+ * Claude Opus 4.6, 4.7, 4.8, Sonnet 4.6, and Sonnet 4.x models support extended 1M context via anthropic_beta parameter
  */
 function supports1MContext(modelId: string): boolean {
-  // Per Anthropic docs: Opus 4.7 always 1M, Opus 4.6 and Sonnet 4.6 support 1M via beta header
+  // Per Anthropic docs: Opus 4.7/4.8 always 1M, Opus 4.6 and Sonnet 4.6 support 1M via beta header
   return (
-    modelId.includes("opus-4-7") || modelId.includes("opus-4-6") || modelId.includes("sonnet-4-6")
+    modelId.includes("opus-4-7") ||
+    modelId.includes("opus-4-8") ||
+    modelId.includes("opus-4-6") ||
+    modelId.includes("sonnet-4-6")
   );
 }
 
 /**
  * Resolve the user-requested effort level to one supported by the given model.
- * CLI-verified: xhigh is Opus 4.7 only; max is Opus 4.6/4.7 + Sonnet 4.6.
+ * CLI-verified: xhigh is Opus 4.7/4.8 only; max is Opus 4.6/4.7/4.8 + Sonnet 4.6.
  * Unsupported levels fall back to "high".
  */
 export function resolveEffortLevel(
@@ -409,12 +423,17 @@ export function resolveEffortLevel(
   modelId: string,
 ): "high" | "low" | "max" | "medium" | "xhigh" {
   const normalized = normalizeModelId(modelId);
-  if (requested === "xhigh" && !normalized.includes("opus-4-7")) {
+  if (
+    requested === "xhigh" &&
+    !normalized.includes("opus-4-7") &&
+    !normalized.includes("opus-4-8")
+  ) {
     return "high";
   }
   if (
     requested === "max" &&
     !normalized.includes("opus-4-7") &&
+    !normalized.includes("opus-4-8") &&
     !normalized.includes("opus-4-6") &&
     !normalized.includes("sonnet-4-6")
   ) {
