@@ -14,6 +14,12 @@ This changelog is split into two sections:
 
 ## Fork changelog (`rangan2510/aws-bedrock-for-copilot`)
 
+### [0.12.0-fork.6] - 2026-05-29
+
+#### Fixed
+
+- **`requiresInterleavedThinkingHeader` for Opus 4.7 and 4.8** -- adaptive-thinking models must not send the `interleaved-thinking-2025-05-14` beta header. The condition now explicitly excludes both `opus-4-7` and `opus-4-8`. Previously, Opus 4.7 was not excluded in this fork (upstream already excluded it); without this fix, both models would receive a beta header they don't need, which can cause `ValidationException` responses. Identified via CodeRabbit review of upstream PR #661.
+
 ### [0.12.0-fork.5] - 2026-05-29
 
 #### Fixed

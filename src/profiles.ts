@@ -146,8 +146,12 @@ export function getModelProfile(modelId: string): ModelProfile {
         modelId.includes("haiku-4.5");
 
       // Interleaved thinking (beta header) is only for Claude 4 models
+      // Opus 4.7 and 4.8 use adaptive thinking and don't require this header
       const requiresInterleavedThinkingHeader =
-        modelId.includes("opus-4") || modelId.includes("sonnet-4");
+        (modelId.includes("opus-4") &&
+          !modelId.includes("opus-4-7") &&
+          !modelId.includes("opus-4-8")) ||
+        modelId.includes("sonnet-4");
 
       // Claude models with extended thinking have issues with cachePoint after toolResult
       const supportsCachingWithToolResults = !supportsThinking;
