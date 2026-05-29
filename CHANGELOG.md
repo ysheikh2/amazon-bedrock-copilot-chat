@@ -14,6 +14,25 @@ This changelog is split into two sections:
 
 ## Fork changelog (`rangan2510/aws-bedrock-for-copilot`)
 
+### [0.12.0-fork.5] - 2026-05-29
+
+#### Fixed
+
+- **Empty / zero-event streams** are now handled with a clear "the server closed the streaming connection without sending any data" message instead of the generic "did not produce a response" fallback. Observed on Opus 4.8 with very large requests (200K+ token context, dozens of tools) where Bedrock occasionally returns a successful HTTP 200 but the EventStream body completes without a single event. The user can retry the turn directly from the chat UI.
+- **Malformed model output / malformed tool use** stop reasons (`malformed_model_output`, `malformed_tool_use`) now surface a dedicated, recoverable message rather than falling through to the catch-all.
+
+#### Added
+
+- **AWS request-id logging** -- `ConverseStream` response metadata (request-id, HTTP status, attempts, CloudFront ID) is now logged at debug level so empty streams can be cross-referenced with AWS support.
+- **Event-count tracking** in stream completion logs -- the `eventCount: N` field in `[Stream Processor] Stream processing completed` makes it obvious when zero events were received versus a stream that ran but produced no visible content.
+
+### [0.12.0-fork.4] - 2026-05-29
+
+#### Added
+
+- **Sync with upstream `tinovyatkin/amazon-bedrock-copilot-chat@87cf46c`** ("[codex] fix Claude 4.7 fallback profile detection", PR #597) -- broader inference-profile prefix recognition for newer geo-prefixed regional profiles (`jp.`, `au.`, `mx.`, partition-specific `cn-north.`, `cn-northwest.`, `us-gov-east.`, `us-gov-west.`); regional-first profile selection that prefers the local geo prefix over the partition default; Claude Opus 4.7 / Sonnet 4.7 added to the Anthropic fallback probes used when `ListFoundationModels` is denied.
+- **Claude Opus 4.8 fallback probe** -- added to the same fallback list with geo-prefix support, so accounts that block `ListFoundationModels` can still discover Opus 4.8 in `ap-northeast-1` / `ap-southeast-2` / etc.
+
 ### [0.12.0-fork.3] - 2026-05-29
 
 #### Added

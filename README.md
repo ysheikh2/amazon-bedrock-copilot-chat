@@ -20,7 +20,7 @@ Bugfixes and additions over upstream `v0.11.0`. CLI-verified against the live Be
 
 **Newer Claude support**
 
-- Opus 4.7: adaptive thinking, deprecated `temperature` handled, correct 1M / 128K limits
+- Opus 4.8 / 4.7: adaptive thinking, deprecated `temperature` handled, correct 1M / 128K limits
 - Haiku 4.5: extended thinking enabled
 - All Claude 4.x: thinking mode (adaptive vs enabled+budget) and effort levels (low / medium / high / xhigh / max) gated per model
 
@@ -52,8 +52,8 @@ Bugfixes and additions over upstream `v0.11.0`. CLI-verified against the live Be
 - **Streaming**: Real-time streaming responses via the Bedrock ConverseStream API
 - **Tool calling**: Full function calling support, required for Copilot Chat features like `@workspace` and `@terminal`
 - **Cross-region inference**: Automatic support for regional and global inference profiles
-- **Extended thinking**: Automatic thinking configuration per model generation -- adaptive thinking for Opus 4.7, enabled+budget for older models, with configurable effort levels for supported models
-- **1M context window**: Always-on 1M context for Opus 4.7; optional 1M for Opus 4.6 and Sonnet 4.6 (configurable in settings)
+- **Extended thinking**: Automatic thinking configuration per model generation -- adaptive thinking for Opus 4.7/4.8, enabled+budget for older models, with configurable effort levels for supported models
+- **1M context window**: Always-on 1M context for Opus 4.7/4.8; optional 1M for Opus 4.6 and Sonnet 4.6 (configurable in settings)
 - **Prompt caching**: Automatic caching of system prompts, tool definitions, and conversation history (Claude and Nova models)
 - **Vision**: Image input support for models that declare IMAGE modality
 
@@ -113,8 +113,8 @@ All settings live under the `aws-bedrock-for-copilot` namespace. Vendor-specific
 | `reasoningEffort` | `high` | `reasoning_effort` for non-Anthropic reasoning models (minimal/low/medium/high) |
 | `anthropic.thinking.enabled` | `true` | Enable extended thinking for thinking-capable Claude models |
 | `anthropic.thinking.budgetTokens` | `10000` | Token budget for `thinking.type=enabled` models (Opus 4.5/4.1/4, Sonnet 4.5/4/3.7, Haiku 4.5) |
-| `anthropic.thinking.effort` | `high` | Adaptive-thinking effort for Opus 4.6/4.7 and Sonnet 4.6 (low/medium/high/xhigh/max) |
-| `anthropic.context1M.enabled` | `true` | Enable 1M context for Opus 4.6 and Sonnet 4.6 (Opus 4.7 always uses 1M) |
+| `anthropic.thinking.effort` | `high` | Adaptive-thinking effort for Opus 4.6/4.7/4.8 and Sonnet 4.6 (low/medium/high/xhigh/max) |
+| `anthropic.context1M.enabled` | `true` | Enable 1M context for Opus 4.6 and Sonnet 4.6 (Opus 4.7/4.8 always use 1M) |
 | `anthropic.inferenceProfiles.preferRegional` | `false` | Use regional (`us.*`/`eu.*`) profiles instead of `global.*` |
 
 Legacy unprefixed keys (`thinking.*`, `context1M.*`, `inferenceProfiles.preferRegional`) are still read for backward compatibility but new installs should use the namespaced keys.
@@ -140,13 +140,13 @@ Models must be **enabled** in your [Bedrock Model Access console](https://consol
 
 | Family | How to control depth | Settings key |
 | --- | --- | --- |
-| Claude Opus 4.6, 4.7, Sonnet 4.6 | adaptive thinking + `effort` (low/medium/high/xhigh/max) | `aws-bedrock-for-copilot.anthropic.thinking.effort` |
+| Claude Opus 4.6, 4.7, 4.8, Sonnet 4.6 | adaptive thinking + `effort` (low/medium/high/xhigh/max) | `aws-bedrock-for-copilot.anthropic.thinking.effort` |
 | Claude Opus 4.5, 4.1, 4, Sonnet 4.5, Sonnet 4, Haiku 4.5 | enabled thinking + `budget_tokens` | `aws-bedrock-for-copilot.anthropic.thinking.budgetTokens` |
 | OpenAI gpt-oss, DeepSeek V3.2, Kimi K2.x, Qwen3, GLM 4.7/5, MiniMax M2.x | OpenAI-style `reasoning_effort` (minimal/low/medium/high) | `aws-bedrock-for-copilot.reasoningEffort` |
 | Everything else (Nova, Llama, Gemma, Mistral, NVIDIA, Cohere, AI21, Writer, &hellip;) | no reasoning controls; settings above are ignored | -- |
 | DeepSeek R1, Kimi K2 Thinking | always-on reasoning, no toggle | -- |
 
-`xhigh` is Opus 4.7 only. `max` is Opus 4.6/4.7 and Sonnet 4.6 only. Unsupported levels fall back to `high` automatically. `minimal` is OpenAI-only and silently downgraded to `low` for other vendors.
+`xhigh` is Opus 4.7/4.8 only. `max` is Opus 4.6/4.7/4.8 and Sonnet 4.6 only. Unsupported levels fall back to `high` automatically. `minimal` is OpenAI-only and silently downgraded to `low` for other vendors.
 
 ### Models that won't work with Copilot Chat
 

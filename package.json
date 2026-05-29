@@ -2,13 +2,13 @@
   "name": "aws-bedrock-for-copilot",
   "publisher": "rangan2510",
   "displayName": "AWS Bedrock for Copilot",
-  "description": "Amazon Bedrock integration using VSCode's official Language Model Chat Provider API. Connects AWS Bedrock models such as Claude (including Opus 4.7), OpenAI OSS, DeepSeek to GitHub Copilot Chat via AWS SDK. Supports streaming, tool calling, and vision.",
+  "description": "Amazon Bedrock integration using VSCode's official Language Model Chat Provider API. Connects AWS Bedrock models such as Claude (including Opus 4.8), OpenAI OSS, DeepSeek to GitHub Copilot Chat via AWS SDK. Supports streaming, tool calling, and vision.",
   "icon": "assets/logo.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/rangan2510/aws-bedrock-for-copilot"
   },
-  "version": "0.12.0-fork.3",
+  "version": "0.12.0-fork.5",
   "engines": {
     "vscode": "^1.116.0"
   },
@@ -143,7 +143,7 @@
           "type": "number",
           "default": 10000,
           "minimum": 1024,
-          "description": "Tokens allocated for thinking on Claude models that use enabled+budget thinking (Opus 4.5, 4.1, 4, Sonnet 4.5, 4, 3.7, Haiku 4.5). For Claude Opus 4.6/4.7 and Sonnet 4.6 the budget is auto-managed via adaptive thinking and this setting is ignored.",
+          "description": "Tokens allocated for thinking on Claude models that use enabled+budget thinking (Opus 4.5, 4.1, 4, Sonnet 4.5, 4, 3.7, Haiku 4.5). For Claude Opus 4.6/4.7/4.8 and Sonnet 4.6 the budget is auto-managed via adaptive thinking and this setting is ignored.",
           "scope": "resource"
         },
         "aws-bedrock-for-copilot.anthropic.thinking.effort": {
@@ -160,16 +160,16 @@
             "Most efficient. Significant token savings with some capability reduction. Best for simpler tasks that need speed and lowest costs.",
             "Balanced approach with moderate token savings. Good for tasks requiring a balance of speed, cost, and performance.",
             "Maximum capability (default). Claude uses as many tokens as needed for excellent results. Recommended for complex reasoning and coding.",
-            "Extended capability for long-horizon agentic work (Opus 4.7 only). Falls back to 'high' on other models. Use with large max_tokens for coding/agentic tasks.",
-            "Absolute maximum capability with no constraints on token spending (Opus 4.6, 4.7, Sonnet 4.6 only). Falls back to 'high' on other models."
+            "Extended capability for long-horizon agentic work (Opus 4.7, 4.8 only). Falls back to 'high' on other models. Use with large max_tokens for coding/agentic tasks.",
+            "Absolute maximum capability with no constraints on token spending (Opus 4.6, 4.7, 4.8, Sonnet 4.6 only). Falls back to 'high' on other models."
           ],
-          "description": "Thinking effort level for adaptive-thinking Claude models (Opus 4.6, 4.7, Sonnet 4.6). Controls how eager Claude is about spending tokens. Some levels are model-gated; unsupported levels fall back to 'high'.",
+          "description": "Thinking effort level for adaptive-thinking Claude models (Opus 4.6, 4.7, 4.8, Sonnet 4.6). Controls how eager Claude is about spending tokens. Some levels are model-gated; unsupported levels fall back to 'high'.",
           "scope": "resource"
         },
         "aws-bedrock-for-copilot.anthropic.context1M.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable 1M context window for Claude Opus 4.6 and Sonnet 4.6. (Opus 4.7 always uses 1M.) When enabled, these models can handle up to 1 million tokens of input context. Note: 1M context costs more.",
+          "description": "Enable 1M context window for Claude Opus 4.6 and Sonnet 4.6. (Opus 4.7 and 4.8 always use 1M.) When enabled, these models can handle up to 1 million tokens of input context. Note: 1M context costs more.",
           "scope": "resource"
         },
         "aws-bedrock-for-copilot.anthropic.inferenceProfiles.preferRegional": {

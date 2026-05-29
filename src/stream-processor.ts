@@ -1,8 +1,8 @@
 import type {
-  ConverseStreamOutput,
-  GuardrailAssessment,
-  GuardrailTraceAssessment,
-  ReasoningContentBlockDelta,
+    ConverseStreamOutput,
+    GuardrailAssessment,
+    GuardrailTraceAssessment,
+    ReasoningContentBlockDelta,
 } from "@aws-sdk/client-bedrock-runtime";
 import { GuardrailContentPolicyAction, StopReason } from "@aws-sdk/client-bedrock-runtime";
 import * as vscode from "vscode";
@@ -22,6 +22,7 @@ export interface ThinkingBlock {
 
 interface ProcessingState {
   capturedThinkingBlock: ThinkingBlock | undefined;
+  eventCount: number;
   hasEmittedContent: boolean;
   hasEmittedThinking: boolean;
   hasToolUse: boolean;
@@ -39,6 +40,7 @@ export class StreamProcessor {
   ): Promise<StreamProcessingResult> {
     const state: ProcessingState = {
       capturedThinkingBlock: undefined,
+      eventCount: 0,
       hasEmittedContent: false,
       hasEmittedThinking: false,
       hasToolUse: false,
@@ -58,6 +60,7 @@ export class StreamProcessor {
           break;
         }
 
+        state.eventCount++;
         this.handleEvent(event, progress, state);
       }
 
@@ -149,6 +152,32 @@ export class StreamProcessor {
         state.hasEmittedContent = true;
       }
 
+      // Bedrock surfaces dedicated stop reasons when the model output (text or
+      // tool-call JSON) is structurally invalid. Treat both as recoverable so
+      // the user sees a clear message instead of "Sorry, no response was returned".
+      if (
+        !state.hasEmittedContent &&
+        !token.isCancellationRequested &&
+        (state.stopReason === StopReason.MALFORMED_MODEL_OUTPUT ||
+          state.stopReason === StopReason.MALFORMED_TOOL_USE)
+      ) {
+        logger.warn(
+          "[Stream Processor] Model produced malformed output, no content emitted",
+          { stopReason: state.stopReason },
+        );
+        const reason =
+          state.stopReason === StopReason.MALFORMED_TOOL_USE
+            ? "tool call"
+            : "output";
+        progress.report(
+          new vscode.LanguageModelTextPart(
+            `*(The model produced a malformed ${reason} that could not be parsed. ` +
+              "This is often transient -- please try again or rephrase your request.)*",
+          ),
+        );
+        state.hasEmittedContent = true;
+      }
+
       // Catch-all: if no content was emitted and none of the above specific
       // handlers matched, emit a generic fallback rather than letting
       // validateContentEmission throw a hard error that VS Code shows as
@@ -158,13 +187,23 @@ export class StreamProcessor {
         !state.hasEmittedThinking &&
         !token.isCancellationRequested
       ) {
+        const isEmptyStream = state.eventCount === 0;
         logger.warn(
-          "[Stream Processor] No content emitted - emitting fallback",
-          { stopReason: state.stopReason },
+          isEmptyStream
+            ? "[Stream Processor] Stream yielded zero events - server returned an empty/aborted stream"
+            : "[Stream Processor] No content emitted - emitting fallback",
+          {
+            eventCount: state.eventCount,
+            stopReason: state.stopReason,
+          },
         );
         progress.report(
           new vscode.LanguageModelTextPart(
-            "*(The model did not produce a response. Please try again or rephrase your request.)*",
+            isEmptyStream
+              ? "*(The server closed the streaming connection without sending any data. " +
+                "This can happen with very large requests or transient AWS Bedrock issues. " +
+                "Please try again, or start a new conversation if the problem persists.)*"
+              : "*(The model did not produce a response. Please try again or rephrase your request.)*",
           ),
         );
         state.hasEmittedContent = true;
@@ -454,6 +493,7 @@ export class StreamProcessor {
   private logCompletion(state: ProcessingState): void {
     logger.info("[Stream Processor] Stream processing completed", {
       capturedThinkingBlock: !!state.capturedThinkingBlock,
+      eventCount: state.eventCount,
       hasEmittedContent: state.hasEmittedContent,
       hasEmittedThinking: state.hasEmittedThinking,
       hasSignature: !!state.capturedThinkingBlock?.signature,
