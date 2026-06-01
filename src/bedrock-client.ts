@@ -417,11 +417,34 @@ export class BedrockAPIClient {
 
       return baseModelId;
     } catch (error) {
-      // If GetInferenceProfile fails, assume it's a regular model ID.
-      // Cache the negative result (mapping to itself) so we don't hammer the
-      // API on every token-count call -- Copilot Chat issues many of those
-      // per turn and each round-trip adds noticeable latency.
-      this.inferenceProfileCache.set(modelId, modelId);
+      // Only cache permanent failures so transient errors (throttling, 5xx, network)
+      // can be retried. Permanent failures (AccessDenied, ResourceNotFound,
+      // ValidationException) are cached so that repeated provideTokenCount calls
+      // -- Copilot fires one per tool per turn -- don't flood the API and trigger
+      // ThrottlingException.
+      const isAbort =
+        abortSignal?.aborted === true || (error instanceof Error && error.name === "AbortError");
+      const errorCode =
+        error instanceof Error
+          ? ((error as unknown as Record<string, unknown>).code ??
+              (error as unknown as Record<string, unknown>).Code ??
+              error.name)
+          : undefined;
+      const httpStatus =
+        error instanceof Error
+          ? (error as unknown as { $metadata?: { httpStatusCode?: number } }).$metadata
+              ?.httpStatusCode
+          : undefined;
+      const isPermanent =
+        !isAbort &&
+        (httpStatus === 404 ||
+          errorCode === "ResourceNotFoundException" ||
+          errorCode === "AccessDeniedException" ||
+          errorCode === "ValidationException");
+
+      if (isPermanent) {
+        this.inferenceProfileCache.set(modelId, modelId);
+      }
       logger.trace(
         `[Bedrock API Client] GetInferenceProfile failed for ${modelId}, treating as regular model ID`,
         error,
