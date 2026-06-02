@@ -256,6 +256,21 @@ export class BedrockAPIClient {
     }
   }
 
+  /**
+   * Fetch per-model pricing data from models.dev (https://models.dev/api.json).
+   *
+   * models.dev is the same source used by Kilo Code and other AI tools. It provides
+   * USD/1M-token pricing for all Bedrock models including Claude 4.x, with per-region
+   * variants (us., eu., au., jp., global. prefixes). No API key is required.
+   *
+   * Fails silently — if the fetch fails or times out (e.g. offline environment),
+   * an empty map is returned so the rest of the extension continues to work normally.
+   * The result is NOT cached on the client instance because the provider already
+   * fetches models once per session; callers should cache as needed.
+   *
+   * @param abortSignal Optional AbortSignal to cancel the request
+   * @returns Map of Bedrock model ID → pricing (USD per million tokens)
+   */
   async fetchModels(abortSignal?: AbortSignal): Promise<BedrockModelSummary[]> {
     try {
       // Clear any fallback state before fetching

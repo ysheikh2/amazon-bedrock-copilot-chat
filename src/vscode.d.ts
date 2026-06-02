@@ -20142,6 +20142,36 @@ declare module 'vscode' {
 		 * Whether or not the model will show up in the model picker.
 		 */
 		readonly isUserSelectable?: boolean;
+
+		/**
+		 * Optional pricing label for this model, such as "Free", "$0.01/1M in · $0.03/1M out", etc.
+		 * This value is meant for display purposes and will be shown in the model management UI.
+		 */
+		readonly pricing?: string;
+
+		/**
+		 * Optional input cost in USD per million tokens for this model.
+		 * Displayed in the model management UI as the cost per million input tokens.
+		 */
+		readonly inputCost?: number;
+
+		/**
+		 * Optional output cost in USD per million tokens for this model.
+		 * Displayed in the model management UI as the cost per million output tokens.
+		 */
+		readonly outputCost?: number;
+
+		/**
+		 * Optional cache read cost in USD per million tokens for this model.
+		 * Present only when prompt caching is supported.
+		 */
+		readonly cacheCost?: number;
+
+		/**
+		 * Optional relative pricing category for this model (e.g. "low", "medium", "high", "very_high").
+		 * Displayed in the model picker as a visual indicator of relative cost.
+		 */
+		readonly priceCategory?: string;
 	}
 
 	/**

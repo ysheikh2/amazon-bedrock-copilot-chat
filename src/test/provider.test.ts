@@ -28,6 +28,16 @@ interface ProviderInternals {
     modelProfile: ReturnType<typeof getModelProfile>,
     modelsDevMap?: ModelsDevMap,
   ) => undefined | { properties?: Record<string, Record<string, unknown>> };
+  buildPricingFields: (
+    modelId: string,
+    modelsDevMap: ModelsDevMap,
+  ) => {
+    cacheCost?: number;
+    inputCost?: number;
+    outputCost?: number;
+    priceCategory?: string;
+    pricing?: string;
+  };
   formatDetail: (modelId: string, maxInput: number, maxOutput: number, vision: boolean) => string;
   formatTooltip: (args: {
     maxInput: number;
@@ -153,6 +163,22 @@ const callResolveModelLimits = (
 
 const makeDevMapEntry = (modelId: string, context: number, output: number): ModelsDevMap =>
   new Map([[modelId, { limit: { context, output } }]]);
+
+/** Build a ModelsDevMap with pricing cost data for testing buildPricingFields */
+const makeDevMapWithCost = (
+  entries: [string, { cacheRead?: number; input: number; output: number }][],
+): ModelsDevMap =>
+  new Map(
+    entries.map(([id, p]) => [
+      id,
+      { cost: { cache_read: p.cacheRead, input: p.input, output: p.output }, limit: { context: 200_000, output: 4096 } },
+    ]),
+  );
+
+const callBuildPricingFields = (modelId: string, modelsDevMap: ModelsDevMap) =>
+  providerInternals(
+    new BedrockChatModelProvider(mockSecretStorage, mockGlobalState),
+  ).buildPricingFields(modelId, modelsDevMap);
 
 suite("Amazon Bedrock Chat Provider Extension", () => {
   suite("provider", () => {
@@ -1435,7 +1461,6 @@ suite("Amazon Bedrock Chat Provider Extension", () => {
     });
 
     test("strips regional prefix when looking up models.dev entry", () => {
-      // models.dev has bare ID; model ID has regional prefix
       const map = makeDevMapEntry("anthropic.claude-sonnet-4-6", 1_000_000, 64_000);
       const result = callResolveModelLimits("us.anthropic.claude-sonnet-4-6", true, map);
       assert.equal(result.maxInputTokens, 1_000_000 - 64_000); // always 1M - 64K
@@ -1444,24 +1469,16 @@ suite("Amazon Bedrock Chat Provider Extension", () => {
 
   suite("buildConfigurationSchema with models.dev data", () => {
     test("reasoningEffort picker appears for new non-Anthropic reasoning model via models.dev", () => {
-      // Simulate a brand-new model not in profiles.ts but present in models.dev
       const devMap: ModelsDevMap = new Map([
-        [
-          "newprovider.new-reasoning-model",
-          { limit: { context: 100_000, output: 8000 }, reasoning: true },
-        ],
+        ["newprovider.new-reasoning-model", { limit: { context: 100_000, output: 8000 }, reasoning: true }],
       ]);
       const schema = callBuildConfigurationSchema("newprovider.new-reasoning-model", devMap);
       assert.ok(schema?.properties?.reasoningEffort);
     });
 
     test("reasoningEffort picker does NOT appear for Anthropic models via models.dev reasoning flag", () => {
-      // Anthropic models use thinkingEffort, not reasoningEffort
       const devMap: ModelsDevMap = new Map([
-        [
-          "anthropic.claude-sonnet-4-6",
-          { limit: { context: 1_000_000, output: 64_000 }, reasoning: true },
-        ],
+        ["anthropic.claude-sonnet-4-6", { limit: { context: 1_000_000, output: 64_000 }, reasoning: true }],
       ]);
       const schema = callBuildConfigurationSchema("anthropic.claude-sonnet-4-6", devMap);
       assert.equal(schema?.properties?.reasoningEffort, undefined);
@@ -1524,6 +1541,48 @@ suite("Amazon Bedrock Chat Provider Extension", () => {
 
     test("leaves short IDs with only two segments unchanged", () => {
       assert.equal(normalizeModelId("amazon.titan"), "amazon.titan");
+    });
+  });
+
+  suite("buildPricingFields", () => {
+    test("returns empty object when model not in pricing map", () => {
+      assert.deepEqual(callBuildPricingFields("anthropic.claude-sonnet-4-6", new Map()), {});
+    });
+
+    test("returns pricing fields for exact model ID match", () => {
+      const map = makeDevMapWithCost([["anthropic.claude-sonnet-4-6", { cacheRead: 0.3, input: 3, output: 15 }]]);
+      const result = callBuildPricingFields("anthropic.claude-sonnet-4-6", map);
+      assert.equal(result.inputCost, 3);
+      assert.equal(result.outputCost, 15);
+      assert.equal(result.cacheCost, 0.3);
+      assert.equal(result.pricing, "$3.00 in · $15.00 out / 1M tokens");
+      assert.equal(result.priceCategory, "high"); // avg = (3+15)/2 = 9
+    });
+
+    test("falls back to us. prefix when exact match missing", () => {
+      const map = makeDevMapWithCost([["us.anthropic.claude-sonnet-4-6", { input: 3, output: 15 }]]);
+      assert.equal(callBuildPricingFields("eu.anthropic.claude-sonnet-4-6", map).inputCost, 3);
+    });
+
+    test("priceCategory is low for cheap models (avg <= $0.50/1M)", () => {
+      const map = makeDevMapWithCost([["amazon.nova-micro-v1:0", { input: 0.035, output: 0.14 }]]);
+      assert.equal(callBuildPricingFields("amazon.nova-micro-v1:0", map).priceCategory, "low");
+    });
+
+    test("priceCategory is very_high for expensive models (avg > $20/1M)", () => {
+      const map = makeDevMapWithCost([["anthropic.claude-opus-4-1-20250805-v1:0", { input: 15, output: 75 }]]);
+      assert.equal(callBuildPricingFields("anthropic.claude-opus-4-1-20250805-v1:0", map).priceCategory, "very_high");
+    });
+
+    test("formats very small prices with 4 decimal places", () => {
+      const map = makeDevMapWithCost([["amazon.nova-micro-v1:0", { input: 0.0035, output: 0.014 }]]);
+      const result = callBuildPricingFields("amazon.nova-micro-v1:0", map);
+      assert.ok(result.pricing?.includes("$0.0035"), `Expected 4-decimal format, got: ${result.pricing}`);
+    });
+
+    test("omits cacheCost when not in pricing data", () => {
+      const map = makeDevMapWithCost([["deepseek.r1", { input: 1.35, output: 5.4 }]]);
+      assert.equal(callBuildPricingFields("deepseek.r1", map).cacheCost, undefined);
     });
   });
 });

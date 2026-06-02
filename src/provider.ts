@@ -253,6 +253,7 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
             }
 
             const modelProfile = getModelProfile(modelIdToUse);
+            const pricingFields = this.buildPricingFields(modelIdToUse, modelsDevMap);
             const modelInfo: PickerLanguageModelChatInformation = {
               capabilities: {
                 agentMode: true,
@@ -280,6 +281,7 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
                 vision,
               }),
               version: "1.0.0",
+              ...pricingFields,
             };
             infos.push(modelInfo);
           }
@@ -316,6 +318,7 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
               : profile.inputModalities.includes(ModelModality.IMAGE);
 
             const appProfileModelProfile = getModelProfile(modelIdForLimits);
+            const appProfilePricingFields = this.buildPricingFields(modelIdForLimits, modelsDevMap);
             const profileInfo: PickerLanguageModelChatInformation = {
               capabilities: {
                 agentMode: true,
@@ -343,6 +346,7 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
                 vision,
               }),
               version: "1.0.0",
+              ...appProfilePricingFields,
             };
             infos.push(profileInfo);
           }
@@ -1168,6 +1172,7 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
       const likelyVisionCapable = devEntry
         ? (devEntry.modalities?.input?.includes("image") ?? false)
         : /anthropic\.|nova\.|llama\.|pixtral|gpt-oss/i.test(baseModelId);
+      const manualPricingFields = this.buildPricingFields(baseModelId, manualModelsDevMap);
 
       return {
         capabilities: {
@@ -1199,6 +1204,7 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
           vision: likelyVisionCapable,
         }),
         version: "1.0.0",
+        ...manualPricingFields,
       };
     } catch (error) {
       if (!(error instanceof Error && error.name === "AbortError")) {
@@ -1280,6 +1286,64 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
     }
 
     return candidates;
+  }
+
+  /**
+   * Build VS Code pricing fields for a model from the models.dev pricing map.
+   *
+   * Looks up the model ID directly, then tries common regional prefix variants
+   * (us., global.) as fallbacks. Returns an empty object if no pricing is found
+   * so spread syntax works cleanly.
+   *
+   * The `pricing` string is formatted as `"$X.XX in · $Y.YY out per 1M tokens"`
+   * for display in the model picker. `inputCost` and `outputCost` are raw USD/1M
+   * numbers. `priceCategory` classifies relative cost ("low"/"medium"/"high"/"very_high").
+   */
+  private buildPricingFields(
+    modelId: string,
+    modelsDevMap: ModelsDevMap,
+  ): {
+    cacheCost?: number;
+    inputCost?: number;
+    outputCost?: number;
+    priceCategory?: string;
+    pricing?: string;
+  } {
+    // Try exact match first, then common fallback prefixes
+    const normalizedId = modelId.replace(/^(us|eu|ap|au|jp|ca|sa|me|af|il|global)\./i, "");
+    const candidates = [modelId, `us.${normalizedId}`, `global.${normalizedId}`, normalizedId];
+
+    let devEntry: ReturnType<ModelsDevMap["get"]>;
+    for (const candidate of candidates) {
+      devEntry = modelsDevMap.get(candidate);
+      if (devEntry?.cost) break;
+    }
+
+    const cost = devEntry?.cost;
+    if (!cost || typeof cost.input !== "number" || typeof cost.output !== "number") return {};
+
+    const pricingLabel = `${fmtUsdPerMillion(cost.input)} in · ${fmtUsdPerMillion(cost.output)} out / 1M tokens`;
+
+    // Classify relative cost tier based on average of input+output ($/1M)
+    const avg = (cost.input + cost.output) / 2;
+    let priceCategory: string;
+    if (avg <= 0.5) {
+      priceCategory = "low";
+    } else if (avg <= 5) {
+      priceCategory = "medium";
+    } else if (avg <= 20) {
+      priceCategory = "high";
+    } else {
+      priceCategory = "very_high";
+    }
+
+    return {
+      ...(typeof cost.cache_read === "number" && { cacheCost: cost.cache_read }),
+      inputCost: cost.input,
+      outputCost: cost.output,
+      priceCategory,
+      pricing: pricingLabel,
+    };
   }
 
   /**
@@ -2219,6 +2283,13 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
       tokenLimit,
     });
   }
+}
+
+/** Format a USD/1M price for display in the model picker. */
+function fmtUsdPerMillion(n: number): string {
+  if (n === 0) return "$0";
+  if (n < 0.01) return `$${n.toFixed(4)}`;
+  return `$${n.toFixed(2)}`;
 }
 
 /**
