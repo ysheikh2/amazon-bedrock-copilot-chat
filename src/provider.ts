@@ -1309,14 +1309,20 @@ export class BedrockChatModelProvider implements vscode.Disposable, LanguageMode
     priceCategory?: string;
     pricing?: string;
   } {
-    // Try exact match first, then common fallback prefixes
-    const normalizedId = modelId.replace(/^(us|eu|ap|au|jp|ca|sa|me|af|il|global)\./i, "");
-    const candidates = [modelId, `us.${normalizedId}`, `global.${normalizedId}`, normalizedId];
-
-    let devEntry: ReturnType<ModelsDevMap["get"]>;
-    for (const candidate of candidates) {
-      devEntry = modelsDevMap.get(candidate);
-      if (devEntry?.cost) break;
+    // Strip any regional prefix (us., eu., global., etc.) to get the bare model ID
+    const normalizedId = normalizeModelId(modelId);
+    // Try exact match, bare ID, then scan all entries whose bare ID matches.
+    // models.dev keys can carry any regional prefix (us., eu., au., jp., global.)
+    // so a simple us./global. fallback misses entries stored under other prefixes.
+    let devEntry: ReturnType<ModelsDevMap["get"]> =
+      modelsDevMap.get(modelId) ?? modelsDevMap.get(normalizedId);
+    if (!devEntry?.cost) {
+      for (const [key, entry] of modelsDevMap) {
+        if (normalizeModelId(key) === normalizedId && entry.cost) {
+          devEntry = entry;
+          break;
+        }
+      }
     }
 
     const cost = devEntry?.cost;
